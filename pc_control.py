@@ -4,6 +4,11 @@ import subprocess
 import telebot
 import pyautogui
 import psutil
+import threading
+import uuid
+import socket
+import urllib.parse
+from http.server import SimpleHTTPRequestHandler, HTTPServer
 from telebot import types
 
 # Импортируем конфиг с личными данными. 
@@ -20,13 +25,17 @@ except ImportError:
 bot = telebot.TeleBot(TOKEN)
 
 # ==========================================
-# БЛОК 1: ХРАНИЛИЩЕ ПУТЕЙ (ФАЙЛОВЫЙ МЕНЕДЖЕР)
+# БЛОК 1: ХРАНИЛИЩЕ ПУТЕЙ И ССЫЛОК
 # ==========================================
-# Используется для обхода жесткого лимита Telegram (64 байта) на callback_data в кнопках.
-# Вместо полных путей в кнопки зашиваются короткие ключи (dir_1, file_5), 
-# а скрипт сопоставляет их с реальными путями в этом словаре.
+# path_storage используется для обхода лимита Telegram (64 байта) на callback_data в кнопках.
 path_storage = {}
 path_counter = 0
+
+# download_links хранит временные уникальные токены для скачивания больших файлов: { "token": "полный_путь" }
+download_links = {}
+
+# Порт для работы локального HTTP-сервера
+HTTP_PORT = 8080
 
 def register_path(path_type, full_path):
     """Регистрирует полный путь в хранилище и возвращает короткий уникальный ключ"""
@@ -45,6 +54,55 @@ def get_available_drives():
         if part.device:
             drives.append(part.device)
     return drives
+
+# ==========================================
+# ВСТРОЕННЫЙ HTTP-СЕРВЕР ДЛЯ БОЛЬШИХ ФАЙЛОВ
+# ==========================================
+class SecureFileHandler(SimpleHTTPRequestHandler):
+    def do_GET(self):
+        """Обработка входящих запросов на скачивание больших файлов"""
+        parsed_url = urllib.parse.urlparse(self.path)
+        path_parts = parsed_url.path.strip('/').split('/')
+        
+        # Проверяем, что запрос идет по адресу /download/уникальный_токен
+        if len(path_parts) == 2 and path_parts[0] == "download":
+            token = path_parts[1]
+            if token in download_links:
+                file_path = download_links[token]
+                if os.path.exists(file_path) and os.path.isfile(file_path):
+                    self.send_response(200)
+                    self.send_header('Content-Type', 'application/octet-stream')
+                    
+                    # Безопасно кодируем имя файла для корректной скачки на любых ОС
+                    encoded_filename = urllib.parse.quote(os.path.basename(file_path))
+                    self.send_header('Content-Disposition', f'attachment; filename="{encoded_filename}"')
+                    self.send_header('Content-Length', str(os.path.getsize(file_path)))
+                    self.end_headers()
+                    
+                    # Читаем и отдаем файл блоками
+                    try:
+                        with open(file_path, 'rb') as f:
+                            while chunk := f.read(64 * 1024):
+                                self.wfile.write(chunk)
+                    except Exception:
+                        pass
+                    return
+                    
+        self.send_response(404)
+        self.end_headers()
+        self.wfile.write(b"File not found or link expired.")
+
+    def log_message(self, format, *args):
+        """Заглушка логов в консоль, чтобы сервер не спамил при скачивании"""
+        pass
+
+def start_http_server():
+    """Запуск HTTP-сервера на всех интерфейсах (0.0.0.0)"""
+    try:
+        server = HTTPServer(('0.0.0.0', HTTP_PORT), SecureFileHandler)
+        server.serve_forever()
+    except Exception as e:
+        print(f"Не удалось запустить HTTP-сервер: {e}")
 
 # ==========================================
 # БЛОК 2: КЛАВИАТУРЫ И ИНТЕРФЕЙС БОТА
@@ -82,7 +140,7 @@ def get_timer_keyboard():
     return markup
 
 def build_file_explorer(path):
-    """Динамически строит список инлайн-кнопок для файлов и папок"""
+    """Динамически строит список инлайн-кнопок для файлов и папок без ограничений размера"""
     markup = types.InlineKeyboardMarkup(row_width=1)
     
     # Если зашли в корень «Компьютер» — выводим список дисков
@@ -123,9 +181,8 @@ def build_file_explorer(path):
             if os.path.isdir(full_path):
                 folders.append((item, full_path))
             elif os.path.isfile(full_path):
-                # Ограничение на отправку файлов через бот — до 50 МБ
-                if os.path.getsize(full_path) < 50 * 1024 * 1024:
-                    files.append((item, full_path))
+                # Теперь добавляем ВСЕ файлы, ограничение снято благодаря HTTP-серверу
+                files.append((item, full_path))
     except Exception:
         pass
 
@@ -177,12 +234,17 @@ def get_pc_status():
     try: gpu_power = "⚡ " + subprocess.check_output("nvidia-smi --query-gpu=power.draw --format=csv,noheader,nounits", shell=True).decode('utf-8').strip() + " Вт"
     except Exception: pass
 
+    # Древовидный формат вывода с символами псевдографики └
     return (
         "💻 **СТАТУС СИСТЕМЫ:**\n\n"
-        f"ℹ️ **Процессор:** Загрузка: {cpu_usage}%\n"
-        f"🧠 **ОЗУ:** Занято: {ram_used} ГБ из {ram_total} ГБ ({ram.percent}%)\n"
-        f"🎮 **Видеокарта:** {gpu_util} | {gpu_temp} | {gpu_power}\n"
-        f"💾 **Диск C:** Свободно: {disk_free} ГБ"
+        "ℹ️ **Процессор:**\n"
+        f"└ Загрузка: {cpu_usage}%\n\n"
+        "🧠 **Оперативная память:**\n"
+        f"└ Занято: {ram_used} ГБ из {ram_total} ГБ ({ram.percent}%)\n\n"
+        "🎮 **Видеокарта NVIDIA:**\n"
+        f"└ Загрузка/Темп/Ватты: {gpu_util} | {gpu_temp} | {gpu_power}\n\n"
+        "💾 **Основной накопитель (C:):**\n"
+        f"└ Свободно: {disk_free} ГБ"
     )
 
 # ==========================================
@@ -211,12 +273,42 @@ def handle_query(call):
         bot.edit_message_text(title, ALLOWED_CHAT_ID, call.message.message_id, parse_mode="Markdown", reply_markup=build_file_explorer(full_path))
         
     elif key.startswith("file_"):
-        bot.send_message(ALLOWED_CHAT_ID, f"⏳ Отправляю файл: `{os.path.basename(full_path)}`...", parse_mode="Markdown")
-        try:
-            with open(full_path, 'rb') as f:
-                bot.send_document(ALLOWED_CHAT_ID, f)
-        except Exception as e:
-            bot.send_message(ALLOWED_CHAT_ID, f"❌ Ошибка отправки файла: {e}")
+        file_size = os.path.getsize(full_path)
+        telegram_limit = 50 * 1024 * 1024 # 50 МБ
+        
+        # Если файл меньше 50 МБ — стандартная отправка документом в чат
+        if file_size < telegram_limit:
+            bot.send_message(ALLOWED_CHAT_ID, f"⏳ Отправляю файл: `{os.path.basename(full_path)}`...", parse_mode="Markdown")
+            try:
+                with open(full_path, 'rb') as f:
+                    bot.send_document(ALLOWED_CHAT_ID, f)
+            except Exception as e:
+                bot.send_message(ALLOWED_CHAT_ID, f"❌ Ошибка отправки файла: {e}")
+        
+        # Если файл больше или равен 50 МБ — генерируем ссылку через встроенный HTTP-сервер
+        else:
+            file_token = str(uuid.uuid4())[:8]
+            download_links[file_token] = full_path
+            
+            # Надежный способ получить реальный IP в домашней сети (192.168.x.x)
+            try:
+                s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+                # Пытаемся "подключиться" к публичному DNS (трафик не идет, но сокет определяет наш локальный интерфейс)
+                s.connect(("8.8.8.8", 80))
+                local_ip = s.getsockname()[0]
+                s.close()
+            except Exception:
+                local_ip = "127.0.0.1"
+                
+            download_url = f"http://{local_ip}:{HTTP_PORT}/download/{file_token}"
+            
+            msg = (
+                f"📦 *Файл слишком большой для Telegram ({round(file_size/(1024*1024), 1)} МБ)*\n\n"
+                f"🔗 Скачайте его напрямую с ПК по ссылке:\n"
+                f"[{os.path.basename(full_path)}]({download_url})\n\n"
+                f"⚠️ _Ссылка работает, пока ПК включен и телефон находится в одной Wi-Fi сети._"
+            )
+            bot.send_message(ALLOWED_CHAT_ID, msg, parse_mode="Markdown")
 
 @bot.message_handler(func=lambda message: True)
 def handle_text_commands(message):
@@ -280,4 +372,13 @@ def handle_text_commands(message):
         else:
             bot.send_message(ALLOWED_CHAT_ID, "Неизвестная команда.", reply_markup=get_main_keyboard())
 
-bot.infinity_polling()
+# ==========================================
+# ИНИЦИАЛИЗАЦИЯ И ЗАПУСК
+# ==========================================
+if __name__ == "__main__":
+    # Запускаем локальный веб-сервер в отдельном daemon-потоке
+    server_thread = threading.Thread(target=start_http_server, daemon=True)
+    server_thread.start()
+
+    # Запускаем бота
+    bot.infinity_polling()
