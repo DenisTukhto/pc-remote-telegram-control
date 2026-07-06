@@ -47,9 +47,13 @@
 ### 1. Подготовка окружения
 Клонируйте репозиторий и перейдите в папку проекта:
 
+```bash
 git clone https://github.com/DenisTukhto/pc-remote-telegram-control.git
+```
 
+```bash
 cd pc-remote-telegram-control
+```
 
 Установите необходимые зависимости из файла:
 ```bash
@@ -62,12 +66,11 @@ pip install -r requirements.txt
 Создайте файл `config.py` в корневой директории проекта:
 
 # config.py
+```bash
 TOKEN = "ВАШ_ТОКЕН_БОТА_ОТ_BOTFATHER"
-
 ALLOWED_CHAT_ID = 123456789  # Ваш числовой Telegram ID
-
 START_DIR = "C:\\"          # Стартовая директория для проводника и сохранения скриншотов.
-
+```
 ### 3. Запуск
 python pc_control.py
 
