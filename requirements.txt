@@ -1,0 +1,3 @@
+pyTelegramBotAPI
+pyautogui
+psutil
