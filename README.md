@@ -47,9 +47,9 @@
 
 ### 1. Подготовка окружения
 Клонируйте репозиторий и перейдите в папку проекта:
-'''bash
-git clone https://github.com/ВАШ_НИКНЕЙМ/pc-remote-control.git
-cd pc-remote-control
+```bash
+git clone https://github.com/DenisTukhto/pc-remote-telegram-control.git
+cd pc-remote-telegram-control
 '''
 
 Установите необходимые зависимости:
