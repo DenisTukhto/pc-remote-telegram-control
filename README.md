@@ -46,32 +46,24 @@
 
 ### 1. Подготовка окружения
 Клонируйте репозиторий и перейдите в папку проекта:
-'''bash
 git clone https://github.com/ВАШ_НИКНЕЙМ/pc-remote-control.git
 cd pc-remote-control
-'''
 
 Установите необходимые зависимости:
-'''bash
 pip install pyTelegramBotAPI pyautogui psutil
-'''
 
 ### 2. Настройка конфигурации
 > ⚠️ **ВАЖНО:** Файл `config.py` содержит конфиденциальные данные. Никогда не загружайте его на GitHub! Добавьте его в `.gitignore`.
 
 Создайте файл `config.py` в корневой директории проекта:
 
-'''python
 # config.py
 TOKEN = "ВАШ_ТОКЕН_БОТА_ОТ_BOTFATHER"
 ALLOWED_CHAT_ID = 123456789  # Ваш числовой Telegram ID
-START_DIR = "C:\\"          # Стартовая директория для проводника и сохранения скриншотов
-'''
+START_DIR = "C:\\"          # Стартовая директория для проводника и сохранения скриншотов.
 
 ### 3. Запуск
-'''bash
 python pc_control.py
-'''
 
 ---
 
