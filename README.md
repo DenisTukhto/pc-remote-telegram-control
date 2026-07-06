@@ -49,7 +49,7 @@
 
 git clone https://github.com/DenisTukhto/pc-remote-telegram-control.git
 
-cd pc-remote-control
+cd pc-remote-telegram-control
 
 Установите необходимые зависимости:
 pip install pyTelegramBotAPI pyautogui psutil
