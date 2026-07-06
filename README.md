@@ -51,8 +51,10 @@ git clone https://github.com/DenisTukhto/pc-remote-telegram-control.git
 
 cd pc-remote-telegram-control
 
-Установите необходимые зависимости:
-pip install pyTelegramBotAPI pyautogui psutil
+Установите необходимые зависимости из файла:
+```bash
+pip install -r requirements.txt
+```
 
 ### 2. Настройка конфигурации
 > ⚠️ **ВАЖНО:** Файл `config.py` содержит конфиденциальные данные. Никогда не загружайте его на GitHub! Добавьте его в `.gitignore`.
