@@ -47,6 +47,7 @@
 ### 1. Подготовка окружения
 Клонируйте репозиторий и перейдите в папку проекта:
 git clone https://github.com/DenisTukhto/pc-remote-telegram-control.git
+
 cd pc-remote-control
 
 Установите необходимые зависимости:
