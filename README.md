@@ -61,7 +61,9 @@ pip install pyTelegramBotAPI pyautogui psutil
 
 # config.py
 TOKEN = "ВАШ_ТОКЕН_БОТА_ОТ_BOTFATHER"
+
 ALLOWED_CHAT_ID = 123456789  # Ваш числовой Telegram ID
+
 START_DIR = "C:\\"          # Стартовая директория для проводника и сохранения скриншотов.
 
 ### 3. Запуск
