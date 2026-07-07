@@ -41,7 +41,7 @@
 * **Дополнительно:** CLI-утилита `nvidia-smi` (устанавливается вместе с драйверами NVIDIA)
 
 ---
-
+   
 ## 🚀 Установка и запуск
 
 ### 1. Подготовка окружения
@@ -59,6 +59,15 @@ cd pc-remote-telegram-control
 ```bash
 pip install -r requirements.txt
 ```
+> 💡 **Решение возможной проблемы со скриншотами:**
+> Если при попытке сделать скриншот бот возвращает ошибку:
+> *`Ошибка: PyAutoGUI was unable to import pyscreeze. (This is likely because you're running a version of Python that Pillow... doesn't support currently.)`*
+>
+> Это означает, что установленная версия Pillow несовместима с текущей версией Python. Для исправления обновите компоненты следующими командами:
+> ```bash
+> pip install --pre --upgrade Pillow
+> pip install --upgrade pyscreeze pyautogui
+> ```
 
 ### 2. Настройка конфигурации
 > ⚠️ **ВАЖНО:** Файл `config.py` содержит ваши конфиденциальные данные. Никогда не загружайте его на GitHub! Он автоматически игнорируется благодаря `.gitignore`.
